@@ -15,7 +15,7 @@
  * reconnects.
  */
 import { randomUUID } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
@@ -33,9 +33,19 @@ import type { ToolContext } from './tools/types.js';
 
 const log = getLogger('server');
 
-const SERVER_INFO = {
+/**
+ * Version comes from package.json so it can't drift. The file sits one level
+ * above both `src/` and `dist/`, and npm always ships it with the package.
+ */
+function packageVersion(): string {
+  const pkgPath = new URL('../package.json', import.meta.url);
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: unknown };
+  return typeof pkg.version === 'string' ? pkg.version : '0.0.0';
+}
+
+export const SERVER_INFO = {
   name: 'intervals-training-bridge',
-  version: '0.1.0',
+  version: packageVersion(),
 } as const;
 
 const INSTRUCTIONS =

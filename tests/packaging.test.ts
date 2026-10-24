@@ -25,3 +25,11 @@ describe('bin entry point', () => {
     expect(pkg.bin['intervals-training-bridge']).toBe('./dist/server.js');
   });
 });
+
+describe('server version', () => {
+  it('SERVER_INFO.version matches package.json', async () => {
+    const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
+    const { SERVER_INFO } = await import('../src/server.js');
+    expect(SERVER_INFO.version).toBe(pkg.version);
+  });
+});
