@@ -93,6 +93,7 @@ export interface Config {
   readonly intervalsApiKey: string;
   readonly intervalsAthleteId: string;
   readonly intervalsBaseUrl: string;
+  readonly intervalsTimeoutMs: number;
   readonly httpPort: number;
   readonly httpHost: string;
   readonly mcpAuthToken: string;
@@ -116,6 +117,7 @@ export function loadConfig(): Config {
     intervalsApiKey: requireEnv('INTERVALS_API_KEY'),
     intervalsAthleteId: optionalEnv('INTERVALS_ATHLETE_ID', '0'),
     intervalsBaseUrl: optionalEnv('INTERVALS_BASE_URL', 'https://intervals.icu/api/v1'),
+    intervalsTimeoutMs: numberEnv('INTERVALS_TIMEOUT_MS', 10_000),
 
     // ── HTTP transport (Claude custom connector) ─────────────────────
     httpPort: numberEnv('PORT', 8787),

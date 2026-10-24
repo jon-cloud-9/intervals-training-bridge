@@ -23,6 +23,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { loadConfig, loadEnvFile, resolveEnvFile, type Config } from './config.js';
 import { getLogger, initLogging } from './logger.js';
 import { IntervalsClient } from './intervals/client.js';
@@ -101,6 +102,7 @@ function buildContext(config: Config): ToolContext {
     apiKey: config.intervalsApiKey,
     athleteId: config.intervalsAthleteId,
     baseUrl: config.intervalsBaseUrl,
+    timeoutMs: config.intervalsTimeoutMs,
   });
   return { client, limits: DEFAULT_LIMITS satisfies ValidationLimits };
 }
@@ -112,13 +114,18 @@ function buildContext(config: Config): ToolContext {
  * for cycling. Non-fatal, and silent when FTP simply isn't configured: a
  * failure or an absent value both just leave the wider default bounds in
  * place, which is the expected steady state for pace-only accounts.
+ *
+ * Updates `context.limits` in place. Tools read the limits at call time, so
+ * the server can start serving first and pick up the FTP when it lands. Never
+ * throws.
  */
-async function withAthleteLimits(context: ToolContext): Promise<ToolContext> {
+export async function applyAthleteLimits(context: ToolContext): Promise<void> {
   try {
     const bikeSettings = await context.client.getSportZoneSettings('bike');
     if (bikeSettings?.ftp) {
       log.info('bounding power validation against athlete FTP', { ftp: bikeSettings.ftp });
-      return { ...context, limits: { ...context.limits, ftp: bikeSettings.ftp } };
+      context.limits = { ...context.limits, ftp: bikeSettings.ftp };
+      return;
     }
     log.info('no FTP configured for this account; using default power validation bounds');
   } catch (error) {
@@ -126,13 +133,22 @@ async function withAthleteLimits(context: ToolContext): Promise<ToolContext> {
       message: String(error),
     });
   }
-  return context;
 }
 
-async function runStdio(context: ToolContext): Promise<void> {
+/**
+ * Connect over stdio, then fetch the athlete limits in the background, so a
+ * slow or unreachable intervals.icu can't hold up the MCP handshake.
+ * Exported (with an injectable transport) so tests can check exactly that.
+ */
+export async function runStdio(
+  context: ToolContext,
+  transport: Transport = new StdioServerTransport(),
+): Promise<McpServer> {
   const server = buildServer(context);
-  await server.connect(new StdioServerTransport());
+  await server.connect(transport);
   log.info('listening on stdio');
+  void applyAthleteLimits(context);
+  return server;
 }
 
 /**
@@ -253,12 +269,14 @@ async function main(): Promise<void> {
   initLogging({ level: config.logLevel, logsPath: config.logsPath });
 
   const useStdio = process.argv.includes('--stdio');
-  const context = await withAthleteLimits(buildContext(config));
+  const context = buildContext(config);
 
   if (useStdio) {
     await runStdio(context);
   } else {
     await runHttp(config, context);
+    // After listening, for the same reason as stdio: never block start-up on it.
+    void applyAthleteLimits(context);
   }
 }
 

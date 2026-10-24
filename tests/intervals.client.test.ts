@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { IntervalsApiError, IntervalsClient } from '../src/intervals/client.js';
+import {
+  IntervalsApiError,
+  IntervalsClient,
+  IntervalsTimeoutError,
+} from '../src/intervals/client.js';
 import { assertDateRange } from '../src/intervals/endpoints.js';
 import type { EventPayload } from '../src/intervals/types.js';
 
@@ -232,5 +236,36 @@ describe('errors', () => {
       .catch((e: Error) => e);
 
     expect(error.message).not.toContain('test-key');
+  });
+});
+
+describe('request timeout', () => {
+  /** A fetch that never answers, but honours the abort signal like the real one. */
+  const hangingFetch = ((_input: string | URL, init?: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+    })) as unknown as typeof fetch;
+
+  it('gives up with a plain-language error when intervals.icu does not answer', async () => {
+    const client = new IntervalsClient({
+      apiKey: 'test-key',
+      athleteId: 'i1',
+      fetchImpl: hangingFetch,
+      timeoutMs: 20,
+    });
+    const error = await client.getWellness(RANGE).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(IntervalsTimeoutError);
+    expect(String((error as Error).message)).toMatch(/did not respond/);
+    expect(String((error as Error).message)).toMatch(/internet connection/);
+  });
+
+  it('passes an abort signal to fetch on every request', async () => {
+    let seen: AbortSignal | undefined;
+    const impl = (async (_input: string | URL, init?: RequestInit) => {
+      seen = init?.signal ?? undefined;
+      return { ok: true, status: 200, text: async () => '[]' } as Response;
+    }) as unknown as typeof fetch;
+    await makeClient(impl).getWellness(RANGE);
+    expect(seen).toBeInstanceOf(AbortSignal);
   });
 });

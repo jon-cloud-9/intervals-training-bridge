@@ -33,6 +33,26 @@ export interface IntervalsClientOptions {
   baseUrl?: string;
   /** Injectable for tests. Defaults to the global fetch. */
   fetchImpl?: typeof fetch;
+  /** Give up on a request after this long. Defaults to 10 seconds. */
+  timeoutMs?: number;
+}
+
+export const DEFAULT_TIMEOUT_MS = 10_000;
+
+/** intervals.icu did not answer in time. */
+export class IntervalsTimeoutError extends Error {
+  constructor(
+    readonly method: string,
+    readonly path: string,
+    readonly timeoutMs: number,
+  ) {
+    super(
+      `intervals.icu did not respond within ${Math.round(timeoutMs / 1000)} seconds ` +
+        `(${method} ${path}). Check your internet connection, or try again in a minute ` +
+        'in case intervals.icu is busy.',
+    );
+    this.name = 'IntervalsTimeoutError';
+  }
 }
 
 /** An API call that returned a non-2xx status. */
@@ -53,12 +73,14 @@ export class IntervalsClient {
   private readonly athleteId: string;
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly timeoutMs: number;
 
   constructor(options: IntervalsClientOptions) {
     this.apiKey = options.apiKey;
     this.athleteId = options.athleteId;
     this.baseUrl = (options.baseUrl ?? 'https://intervals.icu/api/v1').replace(/\/$/, '');
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   private authHeader(): string {
@@ -86,11 +108,22 @@ export class IntervalsClient {
 
     log.debug('request', { method, path, query: options.query });
 
-    const response = await this.fetchImpl(url.toString(), {
-      method,
-      headers,
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-    });
+    const signal = AbortSignal.timeout(this.timeoutMs);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url.toString(), {
+        method,
+        headers,
+        signal,
+        ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      });
+    } catch (error) {
+      if (signal.aborted) {
+        log.error('request timed out', { method, path, timeoutMs: this.timeoutMs });
+        throw new IntervalsTimeoutError(method, path, this.timeoutMs);
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');

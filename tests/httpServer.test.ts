@@ -10,6 +10,7 @@ function config(overrides: Partial<Config> = {}): Config {
     intervalsApiKey: 'test-key',
     intervalsAthleteId: '0',
     intervalsBaseUrl: 'https://example.invalid',
+    intervalsTimeoutMs: 10_000,
     httpPort: 8787,
     httpHost: '127.0.0.1',
     mcpAuthToken: '',
