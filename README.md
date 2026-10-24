@@ -74,6 +74,7 @@ Restart Claude Code, approve the server, and ask it for your recent training.
 These go in the same settings file.
 
 - `LOGS_PATH`: a directory to write `bridge.log` to. Logs always go to stderr, which Claude Code captures. With `--stdio`, no log file is written unless you set this.
+- `TIMEZONE`: the time zone that decides what "today" is, for example `Europe/London` or `America/New_York`. Leave it out to use your computer's time zone.
 
 ## Requirements
 

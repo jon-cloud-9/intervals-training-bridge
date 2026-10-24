@@ -104,7 +104,11 @@ function buildContext(config: Config): ToolContext {
     baseUrl: config.intervalsBaseUrl,
     timeoutMs: config.intervalsTimeoutMs,
   });
-  return { client, limits: DEFAULT_LIMITS satisfies ValidationLimits };
+  return {
+    client,
+    limits: DEFAULT_LIMITS satisfies ValidationLimits,
+    timezone: config.timezone,
+  };
 }
 
 /**

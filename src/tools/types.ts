@@ -12,6 +12,23 @@ import type { ValidationLimits } from '../workout/validate.js';
 export interface ToolContext {
   client: IntervalsClient;
   limits: ValidationLimits;
+  /** IANA time zone that decides what "today" is. Defaults to the system zone. */
+  timezone?: string;
+}
+
+/** The machine's own IANA time zone, e.g. "America/New_York". */
+export function systemTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/** Today's date as yyyy-MM-dd in `timeZone` (en-CA formats dates that way). */
+export function todayIn(timeZone: string = systemTimeZone(), now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
 }
 
 export interface ToolDefinition {

@@ -11,7 +11,13 @@ import { z } from 'zod';
 import { getLogger } from '../logger.js';
 import type { Activity, CalendarEvent, WellnessRecord } from '../intervals/types.js';
 import { weekDiff, type MatchedEntry, type PlannedEntry } from '../state/weekDiff.js';
-import { errorResult, jsonResult, type ToolContext, type ToolDefinition } from './types.js';
+import {
+  errorResult,
+  jsonResult,
+  todayIn,
+  type ToolContext,
+  type ToolDefinition,
+} from './types.js';
 
 const log = getLogger('tools.get_training_context');
 
@@ -140,7 +146,9 @@ export const getTrainingContextTool: ToolDefinition = {
           ]);
 
           const diff = weekDiff(events, activities);
-          const today = new Date().toISOString().slice(0, 10);
+          // The athlete's local date, not UTC: late evening in the Americas or
+          // early morning in Asia/Pacific is already a different UTC day.
+          const today = todayIn(context.timezone);
 
           return jsonResult({
             range: { startDate, endDate },

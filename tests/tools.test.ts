@@ -68,8 +68,8 @@ function stubClient(seed: {
   return { client, recorder };
 }
 
-async function connect(client: IntervalsClient) {
-  const server = buildServer({ client, limits: DEFAULT_LIMITS });
+async function connect(client: IntervalsClient, options: { timezone?: string } = {}) {
+  const server = buildServer({ client, limits: DEFAULT_LIMITS, ...options });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const mcp = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([mcp.connect(clientTransport), server.connect(serverTransport)]);
@@ -501,6 +501,34 @@ describe('get_training_context', () => {
         restingHr: 58,
         hrv: 70,
       });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    // 23:30 UTC on the 29th is already the 30th in Auckland.
+    ['Pacific/Auckland', '2026-07-29T23:30:00Z', '2026-07-30'],
+    // 03:00 UTC on the 30th is still the 29th in Los Angeles.
+    ['America/Los_Angeles', '2026-07-30T03:00:00Z', '2026-07-29'],
+  ])('treats "today" as the date in the configured time zone (%s)', async (timezone, now, expected) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    try {
+      const { client } = stubClient({
+        wellness: [
+          { id: '2026-07-29', ctl: 40.0, atl: 30.0, restingHR: 58, hrv: 70 },
+          { id: '2026-07-30', ctl: 41.0, atl: 31.0, restingHR: 57, hrv: 72 },
+        ],
+      });
+      const mcp = await connect(client, { timezone });
+
+      const result = await mcp.callTool({
+        name: 'get_training_context',
+        arguments: { startDate: '2026-07-27', endDate: '2026-08-02' },
+      });
+      const body = payloadOf(result) as Record<string, any>;
+      expect(body.wellness.date).toBe(expected);
     } finally {
       vi.useRealTimers();
     }

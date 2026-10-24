@@ -103,6 +103,21 @@ function numberEnv(key: string, fallback: number): number {
   return parsed;
 }
 
+/** An IANA time zone from the environment, or the machine's own zone. */
+function timeZoneEnv(key: string): string {
+  const raw = process.env[key];
+  if (!raw) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: raw });
+  } catch {
+    throw new Error(
+      `${key} '${raw}' is not a time zone name. Use one like Europe/London or ` +
+        'America/New_York, or leave it blank to use this computer\'s time zone.',
+    );
+  }
+  return raw;
+}
+
 export interface Config {
   readonly intervalsApiKey: string;
   readonly intervalsAthleteId: string;
@@ -150,6 +165,6 @@ export function loadConfig(options: { stdio?: boolean } = {}): Config {
     logsPath: resolveLogsPath(process.env, process.cwd(), { stdio: options.stdio ?? false }),
 
     // ── Misc ─────────────────────────────────────────────────────────────────
-    timezone: optionalEnv('TIMEZONE', 'Europe/London'),
+    timezone: timeZoneEnv('TIMEZONE'),
   };
 }
