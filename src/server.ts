@@ -15,6 +15,8 @@
  * reconnects.
  */
 import { randomUUID } from 'node:crypto';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -251,7 +253,18 @@ async function main(): Promise<void> {
 }
 
 // Only run when executed directly, so importing this module in tests is safe.
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop() ?? '')) {
+// argv[1] may be a symlink (npx's .bin shim), so compare real paths.
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main().catch((error: unknown) => {
     log.error('fatal', { message: String(error) });
     process.exitCode = 1;
