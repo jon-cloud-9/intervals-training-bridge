@@ -265,10 +265,9 @@ async function main(): Promise<void> {
       process.exit(1);
     }
   }
-  const config = loadConfig();
-  initLogging({ level: config.logLevel, logsPath: config.logsPath });
-
   const useStdio = process.argv.includes('--stdio');
+  const config = loadConfig({ stdio: useStdio });
+  initLogging({ level: config.logLevel, logsPath: config.logsPath ?? undefined });
   const context = buildContext(config);
 
   if (useStdio) {

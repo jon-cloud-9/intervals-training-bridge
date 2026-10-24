@@ -69,6 +69,12 @@ Relative settings-file paths resolve against the directory Claude Code launches 
 
 Restart Claude Code, approve the server, and ask it for your recent training.
 
+### Optional settings
+
+These go in the same settings file.
+
+- `LOGS_PATH`: a directory to write `bridge.log` to. Logs always go to stderr, which Claude Code captures. With `--stdio`, no log file is written unless you set this.
+
 ## Requirements
 
 Node.js 20 or later.

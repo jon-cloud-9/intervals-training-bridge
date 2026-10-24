@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { resolveEnvFile, loadEnvFile } from '../src/config.js';
+import { BASE_DIR, resolveEnvFile, resolveLogsPath, loadEnvFile } from '../src/config.js';
 
 function tmpFile(content: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'envfile-'));
@@ -43,5 +43,19 @@ describe('loadEnvFile', () => {
   it('empty key gives plain-language error', () => {
     const file = tmpFile('INTERVALS_API_KEY=  \n');
     expect(() => loadEnvFile(file, {})).toThrow(`Your intervals.icu API key is empty in ${file}`);
+  });
+});
+
+describe('resolveLogsPath', () => {
+  it('stdio writes no log file unless LOGS_PATH is set', () => {
+    expect(resolveLogsPath({}, '/p', { stdio: true })).toBeNull();
+    expect(resolveLogsPath({ LOGS_PATH: '' }, '/p', { stdio: true })).toBeNull();
+  });
+  it('an explicit LOGS_PATH is used in stdio mode, relative to cwd', () => {
+    expect(resolveLogsPath({ LOGS_PATH: 'logs' }, '/p', { stdio: true })).toBe('/p/logs');
+    expect(resolveLogsPath({ LOGS_PATH: '/var/log/x' }, '/p', { stdio: true })).toBe('/var/log/x');
+  });
+  it('HTTP mode defaults to logs/ in the package directory', () => {
+    expect(resolveLogsPath({}, '/p', { stdio: false })).toBe(path.join(BASE_DIR, 'logs'));
   });
 });

@@ -74,9 +74,23 @@ function optionalEnv(key: string, fallback: string): string {
   return value && value.length > 0 ? value : fallback;
 }
 
-function resolvePath(key: string, fallback: string): string {
-  const raw = optionalEnv(key, fallback);
-  return path.isAbsolute(raw) ? raw : path.join(BASE_DIR, raw);
+/**
+ * Where to write `bridge.log`, or null for stderr only.
+ *
+ * An explicit `LOGS_PATH` always wins, resolved against `cwd` when relative.
+ * Without one, stdio mode writes no file: under npx the package directory is
+ * the npm cache, which is no place for logs, and Claude Code already captures
+ * stderr. HTTP mode is a long-running server started from a checkout, so it
+ * keeps `logs/` in the package directory.
+ */
+export function resolveLogsPath(
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+  options: { stdio: boolean },
+): string | null {
+  const raw = env.LOGS_PATH;
+  if (raw && raw.length > 0) return path.resolve(cwd, raw);
+  return options.stdio ? null : path.join(BASE_DIR, 'logs');
 }
 
 function numberEnv(key: string, fallback: number): number {
@@ -100,7 +114,8 @@ export interface Config {
   readonly allowUnauthenticated: boolean;
   readonly rateLimitPerMinute: number;
   readonly logLevel: string;
-  readonly logsPath: string;
+  /** null = stderr only, no log file. */
+  readonly logsPath: string | null;
   readonly timezone: string;
 }
 
@@ -111,7 +126,7 @@ export interface Config {
  * exercised in dryRun during development without credentials present, and a
  * module-level throw would make the whole server unimportable in that state.
  */
-export function loadConfig(): Config {
+export function loadConfig(options: { stdio?: boolean } = {}): Config {
   return {
     // ── intervals.icu ────────────────────────────────────────────────────────
     intervalsApiKey: requireEnv('INTERVALS_API_KEY'),
@@ -132,7 +147,7 @@ export function loadConfig(): Config {
 
     // ── Logging ──────────────────────────────────────────────────────────────
     logLevel: optionalEnv('LOG_LEVEL', 'info'),
-    logsPath: resolvePath('LOGS_PATH', './logs'),
+    logsPath: resolveLogsPath(process.env, process.cwd(), { stdio: options.stdio ?? false }),
 
     // ── Misc ─────────────────────────────────────────────────────────────────
     timezone: optionalEnv('TIMEZONE', 'Europe/London'),
