@@ -12,14 +12,17 @@ function tmpFile(content: string): string {
 }
 
 describe('resolveEnvFile', () => {
-  it('relative --env-file resolves against cwd', () => {
-    expect(resolveEnvFile(['--env-file', 'config/intervals.env'], {}, '/p')).toBe('/p/config/intervals.env');
+  it('relative --settings-file resolves against cwd', () => {
+    expect(resolveEnvFile(['--settings-file', 'config/intervals.env'], {}, '/p')).toBe('/p/config/intervals.env');
   });
   it('flag beats INTERVALS_ENV_FILE', () => {
-    expect(resolveEnvFile(['--env-file', '/a.env'], { INTERVALS_ENV_FILE: '/b.env' }, '/p')).toBe('/a.env');
+    expect(resolveEnvFile(['--settings-file', '/a.env'], { INTERVALS_ENV_FILE: '/b.env' }, '/p')).toBe('/a.env');
   });
   it('INTERVALS_ENV_FILE is used without a flag', () => {
     expect(resolveEnvFile([], { INTERVALS_ENV_FILE: 'x.env' }, '/p')).toBe('/p/x.env');
+  });
+  it('--env-file is not our flag (Node intercepts it)', () => {
+    expect(resolveEnvFile(['--env-file', 'x'], {}, '/p')).toBeNull();
   });
   it('no flag or env returns null', () => {
     expect(resolveEnvFile(['--stdio'], {}, '/p')).toBeNull();

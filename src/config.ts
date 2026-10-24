@@ -19,11 +19,12 @@ import dotenv from 'dotenv';
 export const BASE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Pick the env file: `--env-file <path>` beats `INTERVALS_ENV_FILE`; relative
+ * Not named `--env-file`: Node intercepts that flag itself.
+ * Pick the env file: `--settings-file <path>` beats `INTERVALS_ENV_FILE`; relative
  * paths resolve against `cwd`. Returns null to fall back to the package `.env`.
  */
 export function resolveEnvFile(argv: string[], env: NodeJS.ProcessEnv, cwd: string): string | null {
-  const i = argv.indexOf('--env-file');
+  const i = argv.indexOf('--settings-file');
   const raw = i >= 0 && argv[i + 1] ? argv[i + 1] : env.INTERVALS_ENV_FILE;
   return raw ? path.resolve(cwd, raw) : null;
 }

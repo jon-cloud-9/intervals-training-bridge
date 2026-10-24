@@ -6,7 +6,8 @@
  * - **Streamable HTTP** (default) — what a Claude custom connector needs.
  *   A stdio server cannot be a Project connector; the connector talks HTTP.
  * - **stdio** (`--stdio`) — for driving the server from a local Claude Code
- *   session while testing in dryRun.
+ *   session while testing in dryRun. Usage: `--stdio [--settings-file <path>]`;
+ *   `INTERVALS_ENV_FILE` is the equivalent env var (the flag wins).
  *
  * HTTP runs stateless: a fresh server and transport per request. There is no
  * cross-request state to keep, and it avoids leaking sessions if the connector
