@@ -22,7 +22,7 @@ describe('bin entry point', () => {
 
   it('package.json bin points at dist/server.js', () => {
     const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
-    expect(pkg.bin['intervals-training-bridge']).toBe('./dist/server.js');
+    expect(pkg.bin['intervals-training-bridge']).toBe('dist/server.js');
   });
 });
 

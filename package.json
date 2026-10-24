@@ -5,13 +5,20 @@
   "description": "MCP server bridging Claude Code to intervals.icu",
   "type": "module",
   "license": "MIT",
-  "repository": "github:jon-cloud-9/intervals-training-bridge",
-  "files": ["dist", "README.md", "LICENSE"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jon-cloud-9/intervals-training-bridge.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=20"
   },
   "bin": {
-    "intervals-training-bridge": "./dist/server.js"
+    "intervals-training-bridge": "dist/server.js"
   },
   "scripts": {
     "build": "tsc",
