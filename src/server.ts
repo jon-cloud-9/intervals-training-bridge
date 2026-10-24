@@ -19,7 +19,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { loadConfig, type Config } from './config.js';
+import { loadConfig, loadEnvFile, resolveEnvFile, type Config } from './config.js';
 import { getLogger, initLogging } from './logger.js';
 import { IntervalsClient } from './intervals/client.js';
 import { createAuthMiddleware } from './http/auth.js';
@@ -226,6 +226,15 @@ async function runHttp(config: Config, context: ToolContext): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const envFile = resolveEnvFile(process.argv.slice(2), process.env, process.cwd());
+  if (envFile) {
+    try {
+      loadEnvFile(envFile);
+    } catch (error: unknown) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
+    }
+  }
   const config = loadConfig();
   initLogging({ level: config.logLevel, logsPath: config.logsPath });
 

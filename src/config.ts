@@ -12,12 +12,53 @@
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import fs from 'node:fs';
 import dotenv from 'dotenv';
 
 /** Project root = intervals-training-bridge/ (two levels up from dist/config.js). */
 export const BASE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-dotenv.config({ path: path.join(BASE_DIR, '.env'), quiet: true });
+/**
+ * Pick the env file: `--env-file <path>` beats `INTERVALS_ENV_FILE`; relative
+ * paths resolve against `cwd`. Returns null to fall back to the package `.env`.
+ */
+export function resolveEnvFile(argv: string[], env: NodeJS.ProcessEnv, cwd: string): string | null {
+  const i = argv.indexOf('--env-file');
+  const raw = i >= 0 && argv[i + 1] ? argv[i + 1] : env.INTERVALS_ENV_FILE;
+  return raw ? path.resolve(cwd, raw) : null;
+}
+
+/** Strip whitespace, then surrounding quotes, then whitespace again. */
+function cleanValue(value: string): string {
+  return value.trim().replace(/^(["'])(.*)\1$/s, '$2').trim();
+}
+
+/**
+ * Load an explicit env file into `target` (default `process.env`). Throws
+ * plain-language errors for a missing file or an empty API key.
+ */
+export function loadEnvFile(file: string, target: NodeJS.ProcessEnv = process.env): void {
+  if (!fs.existsSync(file)) {
+    throw new Error(`Could not find your intervals.icu settings file at ${file}. Run setup again.`);
+  }
+  const parsed = dotenv.parse(fs.readFileSync(file));
+  for (const [key, raw] of Object.entries(parsed)) {
+    const value = cleanValue(raw);
+    if (key === 'INTERVALS_API_KEY' && value === '') {
+      throw new Error(`Your intervals.icu API key is empty in ${file}`);
+    }
+    if (target[key] === undefined) target[key] = value;
+  }
+  if (!target.INTERVALS_API_KEY) {
+    throw new Error(`Your intervals.icu API key is empty in ${file}`);
+  }
+}
+
+// Default behaviour for existing callers: package-root .env. An explicit
+// env file is loaded by the server entry point so errors can be reported cleanly.
+if (resolveEnvFile(process.argv.slice(2), process.env, process.cwd()) === null) {
+  dotenv.config({ path: path.join(BASE_DIR, '.env'), quiet: true });
+}
 
 function requireEnv(key: string): string {
   const value = process.env[key];
