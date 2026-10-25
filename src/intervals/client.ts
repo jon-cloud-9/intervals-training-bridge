@@ -136,7 +136,18 @@ export class IntervalsClient {
       return undefined as T;
     }
 
-    const text = await response.text();
+    // The timeout signal also covers the body, so a stall after the headers
+    // surfaces here and needs the same plain-language error.
+    let text: string;
+    try {
+      text = await response.text();
+    } catch (error) {
+      if (signal.aborted) {
+        log.error('request timed out', { method, path, timeoutMs: this.timeoutMs });
+        throw new IntervalsTimeoutError(method, path, this.timeoutMs);
+      }
+      throw error;
+    }
     if (text.length === 0) {
       return undefined as T;
     }

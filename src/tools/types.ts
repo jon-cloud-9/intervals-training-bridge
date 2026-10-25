@@ -12,6 +12,8 @@ import type { ValidationLimits } from '../workout/validate.js';
 export interface ToolContext {
   client: IntervalsClient;
   limits: ValidationLimits;
+  /** Settles once the athlete's FTP lookup has finished (never rejects). */
+  limitsReady?: Promise<void>;
   /** IANA time zone that decides what "today" is. Defaults to the system zone. */
   timezone?: string;
 }

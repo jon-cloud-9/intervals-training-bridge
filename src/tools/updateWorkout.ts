@@ -38,6 +38,7 @@ export const updateWorkoutTool: ToolDefinition = {
         annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
       },
       async ({ eventId, workout, dryRun }) => {
+        await context.limitsReady;
         try {
           assertValidWorkout(workout, context.limits);
         } catch (error) {

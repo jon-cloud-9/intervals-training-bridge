@@ -119,9 +119,10 @@ function buildContext(config: Config): ToolContext {
  * failure or an absent value both just leave the wider default bounds in
  * place, which is the expected steady state for pace-only accounts.
  *
- * Updates `context.limits` in place. Tools read the limits at call time, so
- * the server can start serving first and pick up the FTP when it lands. Never
- * throws.
+ * Updates `context.limits` in place, so the server can start serving first.
+ * The write tools await `context.limitsReady` before validating, so a workout
+ * is never checked against the defaults while the FTP is still on its way.
+ * Never throws.
  */
 export async function applyAthleteLimits(context: ToolContext): Promise<void> {
   try {
@@ -151,7 +152,7 @@ export async function runStdio(
   const server = buildServer(context);
   await server.connect(transport);
   log.info('listening on stdio');
-  void applyAthleteLimits(context);
+  context.limitsReady = applyAthleteLimits(context);
   return server;
 }
 
@@ -260,17 +261,16 @@ async function runHttp(config: Config, context: ToolContext): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const envFile = resolveEnvFile(process.argv.slice(2), process.env, process.cwd());
-  if (envFile) {
-    try {
-      loadEnvFile(envFile);
-    } catch (error: unknown) {
-      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-      process.exit(1);
-    }
-  }
   const useStdio = process.argv.includes('--stdio');
-  const config = loadConfig({ stdio: useStdio });
+  let config: Config;
+  try {
+    const envFile = resolveEnvFile(process.argv.slice(2), process.env, process.cwd());
+    if (envFile) loadEnvFile(envFile);
+    config = loadConfig({ stdio: useStdio });
+  } catch (error: unknown) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
   initLogging({ level: config.logLevel, logsPath: config.logsPath ?? undefined });
   const context = buildContext(config);
 
@@ -279,7 +279,7 @@ async function main(): Promise<void> {
   } else {
     await runHttp(config, context);
     // After listening, for the same reason as stdio: never block start-up on it.
-    void applyAthleteLimits(context);
+    context.limitsReady = applyAthleteLimits(context);
   }
 }
 

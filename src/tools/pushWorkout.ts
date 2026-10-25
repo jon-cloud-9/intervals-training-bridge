@@ -48,6 +48,7 @@ export const pushWorkoutTool: ToolDefinition = {
         annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
       },
       async ({ workout, dryRun }) => {
+        await context.limitsReady;
         try {
           assertValidWorkout(workout, context.limits);
         } catch (error) {

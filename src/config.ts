@@ -25,8 +25,14 @@ export const BASE_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)
  */
 export function resolveEnvFile(argv: string[], env: NodeJS.ProcessEnv, cwd: string): string | null {
   const i = argv.indexOf('--settings-file');
-  const raw = i >= 0 && argv[i + 1] ? argv[i + 1] : env.INTERVALS_ENV_FILE;
-  return raw ? path.resolve(cwd, raw) : null;
+  if (i >= 0) {
+    const value = argv[i + 1];
+    if (!value || value.startsWith('--')) {
+      throw new Error('--settings-file needs the path to your intervals.icu settings file after it.');
+    }
+    return path.resolve(cwd, value);
+  }
+  return env.INTERVALS_ENV_FILE ? path.resolve(cwd, env.INTERVALS_ENV_FILE) : null;
 }
 
 /** Strip whitespace, then surrounding quotes, then whitespace again. */
@@ -42,7 +48,15 @@ export function loadEnvFile(file: string, target: NodeJS.ProcessEnv = process.en
   if (!fs.existsSync(file)) {
     throw new Error(`Could not find your intervals.icu settings file at ${file}. Run setup again.`);
   }
-  const parsed = dotenv.parse(fs.readFileSync(file));
+  let contents: Buffer;
+  try {
+    contents = fs.readFileSync(file);
+  } catch {
+    throw new Error(
+      `Could not read your intervals.icu settings file at ${file}. Check it is a file you can open, then run setup again.`,
+    );
+  }
+  const parsed = dotenv.parse(contents);
   for (const [key, raw] of Object.entries(parsed)) {
     const value = cleanValue(raw);
     if (key === 'INTERVALS_API_KEY' && value === '') {
@@ -56,8 +70,9 @@ export function loadEnvFile(file: string, target: NodeJS.ProcessEnv = process.en
 }
 
 // Default behaviour for existing callers: package-root .env. An explicit
-// env file is loaded by the server entry point so errors can be reported cleanly.
-if (resolveEnvFile(process.argv.slice(2), process.env, process.cwd()) === null) {
+// env file is resolved and loaded by the server entry point so errors (including
+// a flag with no path) can be reported cleanly; this check must never throw.
+if (!process.argv.includes('--settings-file') && !process.env.INTERVALS_ENV_FILE) {
   dotenv.config({ path: path.join(BASE_DIR, '.env'), quiet: true });
 }
 
@@ -101,6 +116,15 @@ function numberEnv(key: string, fallback: number): number {
     throw new Error(`Environment variable '${key}' must be a number, got '${raw}'`);
   }
   return parsed;
+}
+
+/** A number above zero, e.g. a timeout: 0 or less would fail every request. */
+function positiveNumberEnv(key: string, fallback: number): number {
+  const value = numberEnv(key, fallback);
+  if (value <= 0) {
+    throw new Error(`${key} must be more than 0, got '${process.env[key]}'. Leave it blank for the default.`);
+  }
+  return value;
 }
 
 /** An IANA time zone from the environment, or the machine's own zone. */
@@ -147,7 +171,7 @@ export function loadConfig(options: { stdio?: boolean } = {}): Config {
     intervalsApiKey: requireEnv('INTERVALS_API_KEY'),
     intervalsAthleteId: optionalEnv('INTERVALS_ATHLETE_ID', '0'),
     intervalsBaseUrl: optionalEnv('INTERVALS_BASE_URL', 'https://intervals.icu/api/v1'),
-    intervalsTimeoutMs: numberEnv('INTERVALS_TIMEOUT_MS', 10_000),
+    intervalsTimeoutMs: positiveNumberEnv('INTERVALS_TIMEOUT_MS', 10_000),
 
     // ── HTTP transport (Claude custom connector) ─────────────────────
     httpPort: numberEnv('PORT', 8787),

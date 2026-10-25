@@ -259,6 +259,26 @@ describe('request timeout', () => {
     expect(String((error as Error).message)).toMatch(/internet connection/);
   });
 
+  it('gives the same plain error when the body stalls after the headers', async () => {
+    const stallingBody = (async (_input: string | URL, init?: RequestInit) =>
+      ({
+        ok: true,
+        status: 200,
+        text: () =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          }),
+      }) as Response) as unknown as typeof fetch;
+    const client = new IntervalsClient({
+      apiKey: 'test-key',
+      athleteId: 'i1',
+      fetchImpl: stallingBody,
+      timeoutMs: 20,
+    });
+    const error = await client.getWellness(RANGE).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(IntervalsTimeoutError);
+  });
+
   it('passes an abort signal to fetch on every request', async () => {
     let seen: AbortSignal | undefined;
     const impl = (async (_input: string | URL, init?: RequestInit) => {
