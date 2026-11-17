@@ -1,3 +1,5 @@
+No longer maintained (archived 2026-11-17). Not published further; 0.2.1 is the last release.
+
 # intervals-training-bridge
 
 An MCP server that lets Claude Code read your [intervals.icu](https://intervals.icu) training data and write planned workouts to your intervals.icu calendar. If your calendar syncs to Garmin Connect, those workouts appear on your watch.
